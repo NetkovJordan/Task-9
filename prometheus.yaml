@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: app-namespace
+data: 
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: 'shark-service'
+        scrape_interval: 15s
+        metrics_path: '/metrics'
+        static_configs:
+          - targets: ['shark-service:82']
+
+      - job_name: 'kube-state-metrics'
+        scrape_interval: 15s
+        metrics_path: '/metrics'
+        static_configs:
+          - targets: ['kube-state-metrics.kube-system.svc.cluster.local:8080']
+
+    
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-deployment
+  namespace: app-namespace
+spec:
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus
+        ports:
+        - containerPort: 9090
+          name: prometheus-port
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus/prometheus.yml
+          subPath: prometheus.yml
+        
+      volumes: 
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+          items:
+          - key: prometheus.yml
+            path: prometheus.yml
+
+       
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: app-namespace
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 3003
+    targetPort: prometheus-port
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus-ingress
+  namespace: app-namespace
+  labels:
+    name: prometheus
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: prometheus.example.com
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/"
+            backend:
+              service:
+                name: prometheus-service
+                port:
+                  number: 3003

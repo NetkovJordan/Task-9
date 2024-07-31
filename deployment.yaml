@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-namespace
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shark-app
+  namespace: app-namespace
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: shark-app
+  template:
+    metadata:
+      labels:
+        app: shark-app
+    spec:
+      containers:
+      - name: shark-app
+        image: netkovjordan/shark-app:2.0
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "256m"
+        ports:
+        - containerPort: 8080
+          name: shark-port
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: shark-service
+  namespace: app-namespace
+spec:
+  selector:
+    app: shark-app
+  ports:
+  - port: 82
+    targetPort: shark-port
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: app-namespace
+  labels:
+    name: shark-app
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: shark.applications.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: shark-service
+            port: 
+              number: 82
+

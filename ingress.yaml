@@ -1,0 +1,6 @@
+controller:
+  admissionWebhooks:
+    enabled: false
+  scope:
+    namespace: app-namespace
+    
